@@ -1,7 +1,9 @@
 package com.revakovskyi.customview_tictactoe
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -42,6 +44,12 @@ class TicTacToeView(
     private var cellSize = 0f
     private var cellPadding = 0f
 
+    private lateinit var player1Paint: Paint
+    private lateinit var player2Paint: Paint
+    private lateinit var gridPaint: Paint
+
+    private val listener: OnFieldChangeListener = { /*TODO*/ }
+
     /**
      * Setter needs to set for the ticTacToeField variable a new value - "value"
      *
@@ -65,24 +73,19 @@ class TicTacToeView(
             invalidate()
         }
 
-    private val listener: OnFieldChangeListener = {
 
-    }
-
-
+    /**
+     * @see isInEditMode - a param which check is it a debug mode or not and if it is - we can set up
+     * some values and create some objects directly in this check to see the drawing progress right
+     * away. It's like a helper function to create some object and to see it on the canvas
+     */
     init {
         if (attributeSet != null) initAttributes(attributeSet, defStyleAttr, defStyleRes)
         else initDefaultColors()
-    }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        ticTacToeField?.listeners?.add(listener)
-    }
+        initPaints()
 
-    override fun onDetachedFromWindow() {
-        super.onDetachedFromWindow()
-        ticTacToeField?.listeners?.remove(listener)
+        if (isInEditMode) ticTacToeField = TicTacToeField(rows = 8, columns = 6)
     }
 
     private fun initAttributes(attributeSet: AttributeSet, defStyleAttr: Int, defStyleRes: Int) {
@@ -102,6 +105,42 @@ class TicTacToeView(
     }
 
     /**
+     * @param Paint.ANTI_ALIAS_FLAG - needs to create a smooth pixel line while using a paint to draw view.
+     * This flag can slow down a drawing process a bit but the picture will be smoother
+     *
+     * @see TypedValue.applyDimension - convert dp into the px
+     */
+    private fun initPaints() {
+        player1Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = player1Color
+            style = Paint.Style.STROKE
+            strokeWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 3f, resources.displayMetrics)
+        }
+
+        player2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = player2Color
+            style = Paint.Style.STROKE
+            strokeWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 3f, resources.displayMetrics)
+        }
+
+        gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = gridColor
+            style = Paint.Style.STROKE
+            strokeWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1f, resources.displayMetrics)
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        ticTacToeField?.listeners?.add(listener)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        ticTacToeField?.listeners?.remove(listener)
+    }
+
+    /**
      * In this function, the container agrees with our view what dimensions the container can give for the
      * view and what dimensions the view requires for itself.
      * As a result, after we indicate the desired sizes and pass them to the
@@ -116,7 +155,12 @@ class TicTacToeView(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val minWidth = suggestedMinimumWidth + paddingLeft + paddingRight
         val minHeight = suggestedMinimumHeight + paddingTop + paddingBottom
-        val desiredCellSizeInPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, DESIRED_CELL_SIZE, resources.displayMetrics).toInt()
+
+        val desiredCellSizeInPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            DESIRED_CELL_SIZE,
+            resources.displayMetrics
+        ).toInt()
 
         val rows = ticTacToeField?.getRowsAndColumns()?.first ?: 0
         val columns = ticTacToeField?.getRowsAndColumns()?.second ?: 0
@@ -158,6 +202,44 @@ class TicTacToeView(
         fieldRect.top = paddingTop + (safeHeight - fieldHeight) / 2
         fieldRect.right = fieldRect.left + fieldWidth
         fieldRect.bottom = fieldRect.top + fieldHeight
+    }
+
+    // To see what we are drawing we need to build a project!
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+
+        if (canNotStartDrawing()) return
+        drawGrid(canvas)
+        drawCells(canvas)
+    }
+
+    private fun canNotStartDrawing(): Boolean {
+        return ticTacToeField == null ||
+                cellSize == 0f ||
+                fieldRect.width() <= 0f ||
+                fieldRect.height() <= 0f
+    }
+
+    private fun drawGrid(canvas: Canvas) {
+        val field = ticTacToeField ?: return
+
+        val xStart = fieldRect.left
+        val xEnd = fieldRect.right
+        for (i in 0..field.getRowsAndColumns().first) {
+            val y = fieldRect.top + cellSize * i
+            canvas.drawLine(xStart, y, xEnd, y, gridPaint)
+        }
+
+        val yStart = fieldRect.top
+        val yEnd = fieldRect.bottom
+        for (i in 0..field.getRowsAndColumns().second) {
+            val x = fieldRect.left + cellSize * i
+            canvas.drawLine(x, yStart, x, yEnd, gridPaint)
+        }
+    }
+
+    private fun drawCells(canvas: Canvas) {
+
     }
 
 
