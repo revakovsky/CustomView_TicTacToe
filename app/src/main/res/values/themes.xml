@@ -2,8 +2,29 @@
 
     <style name="Base.Theme.CustomViewTicTacToe" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:statusBarColor">@color/black</item>
+
+        <!--
+        Define the style for the all TicTacToeField Custom View that will be used in the app
+        and have different attrs from the default style
+        -->
+        <item name="ticTacToeFieldStyle">@style/GlobalTicTacToeFieldStyle</item>
     </style>
 
     <style name="Theme.CustomViewTicTacToe" parent="Base.Theme.CustomViewTicTacToe" />
+
+    <!--
+    This style is default and applies when the "ticTacToeFieldStyle" attr wasn't set in the app's theme
+    and we didn't apply the GlobalTicTacToeFieldStyle for the view
+    -->
+    <style name="DefaultTicTacToeFieldStyle">
+        <item name="player1Color">#51C102</item>
+        <item name="player2Color">#C10202</item>
+        <item name="gridColor">#5A5656</item>
+    </style>
+
+    <!--  This style is to rewrite some default attrs for the Custom View and it needs to be set in the app's theme  -->
+    <style name="GlobalTicTacToeFieldStyle" parent="DefaultTicTacToeFieldStyle">
+        <item name="player1Color">#0232C1</item>
+    </style>
 
 </resources>
