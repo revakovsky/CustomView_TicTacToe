@@ -41,6 +41,8 @@ class TicTacToeView(
     private var gridColor by Delegates.notNull<Int>()
 
     private val fieldRect = RectF(0f, 0f, 0f, 0f)
+    private val cellRect = RectF(0f, 0f, 0f, 0f)
+
     private var cellSize = 0f
     private var cellPadding = 0f
 
@@ -63,7 +65,7 @@ class TicTacToeView(
      *
      * @see invalidate - to redraw the TicTacToeField and show updated state of the variable ticTacToeField
      */
-    private var ticTacToeField: TicTacToeField? = null
+    var gameField: TicTacToeField? = null
         set(value) {
             field?.listeners?.remove(listener)
             field = value
@@ -85,7 +87,11 @@ class TicTacToeView(
 
         initPaints()
 
-        if (isInEditMode) ticTacToeField = TicTacToeField(rows = 8, columns = 6)
+        if (isInEditMode) {
+            gameField = TicTacToeField(rows = 8, columns = 6)
+            gameField?.setCell(4, 2, Cell.PLAYER_1)
+            gameField?.setCell(3, 1, Cell.PLAYER_2)
+        }
     }
 
     private fun initAttributes(attributeSet: AttributeSet, defStyleAttr: Int, defStyleRes: Int) {
@@ -132,12 +138,12 @@ class TicTacToeView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        ticTacToeField?.listeners?.add(listener)
+        gameField?.listeners?.add(listener)
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        ticTacToeField?.listeners?.remove(listener)
+        gameField?.listeners?.remove(listener)
     }
 
     /**
@@ -162,8 +168,8 @@ class TicTacToeView(
             resources.displayMetrics
         ).toInt()
 
-        val rows = ticTacToeField?.getRowsAndColumns()?.first ?: 0
-        val columns = ticTacToeField?.getRowsAndColumns()?.second ?: 0
+        val rows = gameField?.getRowsAndColumns()?.first ?: 0
+        val columns = gameField?.getRowsAndColumns()?.second ?: 0
 
         val desiredWidth = max(minWidth, (rows * desiredCellSizeInPx + paddingLeft + paddingRight))
         val desiredHeight = max(minHeight, (columns * desiredCellSizeInPx + paddingTop + paddingBottom))
@@ -185,7 +191,7 @@ class TicTacToeView(
     }
 
     private fun updateViewSizes() {
-        val field = this.ticTacToeField ?: return
+        val field = this.gameField ?: return
 
         val safeWidth = width - paddingLeft - paddingRight
         val safeHeight = height - paddingTop - paddingBottom
@@ -214,14 +220,14 @@ class TicTacToeView(
     }
 
     private fun canNotStartDrawing(): Boolean {
-        return ticTacToeField == null ||
+        return gameField == null ||
                 cellSize == 0f ||
                 fieldRect.width() <= 0f ||
                 fieldRect.height() <= 0f
     }
 
     private fun drawGrid(canvas: Canvas) {
-        val field = ticTacToeField ?: return
+        val field = gameField ?: return
 
         val xStart = fieldRect.left
         val xEnd = fieldRect.right
@@ -239,7 +245,42 @@ class TicTacToeView(
     }
 
     private fun drawCells(canvas: Canvas) {
+        val field = gameField ?: return
 
+        for (row in 0 until field.getRowsAndColumns().first) {
+            for (column in 0 until field.getRowsAndColumns().second) {
+                val cell = field.getCell(row, column)
+                when (cell) {
+                    Cell.PLAYER_1 -> drawPlayer1(canvas, row, column)
+                    Cell.PLAYER_2 -> drawPlayer2(canvas, row, column)
+                    else -> Unit
+                }
+            }
+        }
+    }
+
+    private fun drawPlayer1(canvas: Canvas, row: Int, column: Int) {
+        val cellRect = getCellRect(column, row)
+        canvas.drawLine(cellRect.left, cellRect.top, cellRect.right, cellRect.bottom, player1Paint)
+        canvas.drawLine(cellRect.right, cellRect.top, cellRect.left, cellRect.bottom, player1Paint)
+    }
+
+    private fun drawPlayer2(canvas: Canvas, row: Int, column: Int) {
+        val cellRect = getCellRect(column, row)
+        canvas.drawCircle(
+            cellRect.centerX(),
+            cellRect.centerY(),
+            cellRect.width() / 2,
+            player2Paint
+        )
+    }
+
+    private fun getCellRect(column: Int, row: Int): RectF {
+        cellRect.left = fieldRect.left + column * cellSize + cellPadding
+        cellRect.top = fieldRect.top + row * cellSize + cellPadding
+        cellRect.right = cellRect.left + cellSize - cellPadding * 2
+        cellRect.bottom = cellRect.top + cellSize - cellPadding * 2
+        return cellRect
     }
 
 

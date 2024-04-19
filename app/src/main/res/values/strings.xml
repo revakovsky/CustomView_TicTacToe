@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Custom View - Tic Tac Toe</string>
+    <string name="generate_field">Generate field</string>
 </resources>
