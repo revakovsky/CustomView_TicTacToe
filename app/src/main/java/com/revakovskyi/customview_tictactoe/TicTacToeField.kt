@@ -26,4 +26,6 @@ class TicTacToeField(
         } else return
     }
 
+    fun getRowsAndColumns(): Pair<Int, Int> = rows to columns
+
 }
