@@ -287,11 +287,10 @@ class TicTacToeView(
     private fun drawFocusedCell(canvas: Canvas) {
         val field = this.gameField ?: return
 
-        if (currentCellRow < 0 || currentCellColumn < 0 ||
-            currentCellRow >= field.getRowsAndColumns().first ||
-            currentCellColumn >= field.getRowsAndColumns().second) return
+        if (currentCellRow !in 0 until field.getRowsAndColumns().first ||
+            currentCellColumn !in 0 until field.getRowsAndColumns().second) return
 
-        val cellRect = getCellRect(currentCellColumn, currentCellRow)
+        val cellRect = getCellRect(currentCellRow, currentCellColumn)
         canvas.drawRect(
             cellRect.left - cellPadding,
             cellRect.top - cellPadding,
@@ -317,13 +316,13 @@ class TicTacToeView(
     }
 
     private fun drawPlayer1(canvas: Canvas, row: Int, column: Int) {
-        val cellRect = getCellRect(column, row)
+        val cellRect = getCellRect(row, column)
         canvas.drawLine(cellRect.left, cellRect.top, cellRect.right, cellRect.bottom, player1Paint)
         canvas.drawLine(cellRect.right, cellRect.top, cellRect.left, cellRect.bottom, player1Paint)
     }
 
     private fun drawPlayer2(canvas: Canvas, row: Int, column: Int) {
-        val cellRect = getCellRect(column, row)
+        val cellRect = getCellRect(row, column)
         canvas.drawCircle(
             cellRect.centerX(),
             cellRect.centerY(),
@@ -332,7 +331,7 @@ class TicTacToeView(
         )
     }
 
-    private fun getCellRect(column: Int, row: Int): RectF {
+    private fun getCellRect(row: Int, column: Int): RectF {
         cellRect.left = fieldRect.left + column * cellSize + cellPadding
         cellRect.top = fieldRect.top + row * cellSize + cellPadding
         cellRect.right = cellRect.left + cellSize - cellPadding * 2
