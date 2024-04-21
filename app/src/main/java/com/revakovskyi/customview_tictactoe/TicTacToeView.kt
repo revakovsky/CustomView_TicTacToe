@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.util.TypedValue
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.floor
@@ -113,6 +114,9 @@ class TicTacToeView(
         // Make our view to work on devices without touchscreen
         isFocusable = true
         isClickable = true
+
+        // Hide an animations and focus state of the view while using the keyboard
+        defaultFocusHighlightEnabled = false
     }
 
     private fun initAttributes(attributeSet: AttributeSet, defStyleAttr: Int, defStyleRes: Int) {
@@ -411,6 +415,41 @@ class TicTacToeView(
 
     private fun getColumn(event: MotionEvent): Int {
         return floor((event.x - fieldRect.left) / cellSize).toInt()
+    }
+
+    /**
+     * The function needs to handle keyboard pressing events. It can work due to that fact that we
+     * process the onTouchEvent via the performClick()
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_DOWN -> moveCurrentCell(rowDiff = 1, colDiff = 0)
+            KeyEvent.KEYCODE_DPAD_LEFT -> moveCurrentCell(rowDiff = 0, colDiff = -1)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> moveCurrentCell(rowDiff = 0, colDiff = 1)
+            KeyEvent.KEYCODE_DPAD_UP -> moveCurrentCell(rowDiff = -1, colDiff = 0)
+            else -> super.onKeyDown(keyCode, event)
+        }
+    }
+
+    private fun moveCurrentCell(rowDiff: Int, colDiff: Int): Boolean {
+        val field = this.gameField ?: return false
+
+        if (currentCellRow == -1 || currentCellColumn == -1) {
+            currentCellRow = 0
+            currentCellColumn = 0
+            invalidate()
+            return true
+        } else {
+            if (currentCellRow + rowDiff < 0) return false
+            if (currentCellRow + rowDiff >= field.getRowsAndColumns().first) return false
+            if (currentCellColumn + colDiff < 0) return false
+            if (currentCellColumn + colDiff >= field.getRowsAndColumns().second) return false
+
+            currentCellRow += rowDiff
+            currentCellColumn += colDiff
+            invalidate()
+            return true
+        }
     }
 
 
