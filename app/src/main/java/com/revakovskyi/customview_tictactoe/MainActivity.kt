@@ -8,13 +8,23 @@ class MainActivity : AppCompatActivity() {
 
     private var binding: ActivityMainBinding? = null
 
+    private var isFirstPlayer = true
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding?.root)
 
         binding?.apply {
-            ticTacToeView.gameField = TicTacToeField(rows = 10, columns = 10)
+            ticTacToeView.cellListener = { row, column, field ->
+                val cell = field.getCell(row, column)
+                if (cell == Cell.EMPTY) {
+                    if (isFirstPlayer) field.setCell(row, column, Cell.PLAYER_1)
+                    else field.setCell(row, column, Cell.PLAYER_2)
+
+                    isFirstPlayer = !isFirstPlayer
+                }
+            }
 
             generateBut.setOnClickListener {
                 ticTacToeView.gameField = TicTacToeField(

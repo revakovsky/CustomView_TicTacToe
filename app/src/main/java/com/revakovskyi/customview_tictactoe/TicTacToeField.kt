@@ -1,8 +1,14 @@
 package com.revakovskyi.customview_tictactoe
 
-enum class Cell { PLAYER_1, PLAYER_2, EMPTY }
+enum class Cell {
+    PLAYER_1,   // X
+    PLAYER_2,   // 0
+    EMPTY       // empty cell
+}
 
 typealias OnFieldChangeListener = (field: TicTacToeField) -> Unit
+
+typealias OnCellActionListener = (row: Int, column: Int, field: TicTacToeField) -> Unit
 
 
 class TicTacToeField(
@@ -18,7 +24,7 @@ class TicTacToeField(
     }
 
     fun setCell(row: Int, column: Int, cell: Cell) {
-        if (row in 0..rows && column in 0..columns) {
+        if (row in 0 until rows && column in 0 until columns) {
             if (cells[row][column] != cell) {
                 cells[row][column] = cell
                 listeners.forEach { it.invoke(this) }

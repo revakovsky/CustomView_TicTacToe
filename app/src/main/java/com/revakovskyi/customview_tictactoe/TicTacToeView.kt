@@ -7,7 +7,9 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.util.TypedValue
+import android.view.MotionEvent
 import android.view.View
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.properties.Delegates
@@ -20,15 +22,18 @@ class TicTacToeView(
 ) : View(context, attributeSet, defStyleAttr, defStyleRes) {
 
     /**
-     * Set a default style for the view if the Global attrStyle
-     * (in our case it is a "ticTacToeFieldStyle") wasn't set up
+     * if there is no style, global style, color attributes ->
+     * then use values from DefaultTicTacToeFieldStyle
      */
     constructor(context: Context, attributeSet: AttributeSet?, defStyleAttr: Int) : this(context, attributeSet, defStyleAttr, R.style.DefaultTicTacToeFieldStyle)
 
+
     /**
-     * Set a global style for the custom view in the current app
+     * if global style is defined in app theme by using ticTacToeFieldStyle attribute ->
+     * all TicTacToe views in the project will use that style
      */
     constructor(context: Context, attributeSet: AttributeSet?) : this(context, attributeSet, R.attr.ticTacToeFieldStyle)
+
 
     /**
      * Set a constructor to create a view from the code with minimal params
@@ -46,22 +51,33 @@ class TicTacToeView(
     private var cellSize = 0f
     private var cellPadding = 0f
 
+    // Row and Columns to detect by using physical keyBoard
+    private var currentCellRow = -1
+    private var currentCellColumn = -1
+
     private lateinit var player1Paint: Paint
     private lateinit var player2Paint: Paint
+    private lateinit var focusedCellPaint: Paint
     private lateinit var gridPaint: Paint
 
-    private val listener: OnFieldChangeListener = { /*TODO*/ }
+    // When some data changes in the field -> need to redraw the view
+    private val listener: OnFieldChangeListener = { invalidate() }
+
+    // Assign cell listener in order to listen user actions with this view in the activity/fragment
+    var cellListener: OnCellActionListener? = null
 
     /**
-     * Setter needs to set for the ticTacToeField variable a new value - "value"
+     * Field data is stored here. Setter needs to set for the ticTacToeField variable a new value - "value"
      *
      * field?.listeners?.remove(listener) - unsubscribe the listener from the old field to prevent leakMemory
      * field?.listeners?.add(listener) - subscribe a new listener to the new field
      *
      * @see requestLayout - If we want to change the size of the field on the layout: e.g. the field was the
-     * size of 3x4 and we wanna make it 5x7 we should call this fun
+     * size of 3x4 and we wanna make it 5x7 we should call this fun. In case of using wrap_content,
+     * view size may also be changed
      *
-     * @see updateViewSizes - update view sizes if we changed the field size
+     * @see updateViewSizes - If new field may have another number of rows/columns, another cells,
+     * so need to update safe zone rect, cell size, cell padding
      *
      * @see invalidate - to redraw the TicTacToeField and show updated state of the variable ticTacToeField
      */
@@ -87,15 +103,22 @@ class TicTacToeView(
 
         initPaints()
 
+        // Here we can initialize some data for component preview in Android Studio
         if (isInEditMode) {
             gameField = TicTacToeField(rows = 8, columns = 6)
             gameField?.setCell(4, 2, Cell.PLAYER_1)
             gameField?.setCell(3, 1, Cell.PLAYER_2)
         }
+
+        // Make our view to work on devices without touchscreen
+        isFocusable = true
+        isClickable = true
     }
 
     private fun initAttributes(attributeSet: AttributeSet, defStyleAttr: Int, defStyleRes: Int) {
         val typedArray = context.obtainStyledAttributes(attributeSet, R.styleable.TicTacToeView, defStyleAttr, defStyleRes)
+
+        // parsing XML attributes
         player1Color = typedArray.getColor(R.styleable.TicTacToeView_player1Color, PLAYER_1_DEFAULT_COLOR)
         player2Color = typedArray.getColor(R.styleable.TicTacToeView_player2Color, PLAYER_2_DEFAULT_COLOR)
         gridColor = typedArray.getColor(R.styleable.TicTacToeView_gridColor, GRID_DEFAULT_COLOR)
@@ -129,6 +152,11 @@ class TicTacToeView(
             strokeWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 3f, resources.displayMetrics)
         }
 
+        focusedCellPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = CURRENT_CELL_DEFAULT_COLOR
+            style = Paint.Style.FILL
+        }
+
         gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = gridColor
             style = Paint.Style.STROKE
@@ -138,11 +166,15 @@ class TicTacToeView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+
+        // Start listening field data changes
         gameField?.listeners?.add(listener)
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+
+        // Stop listening field data changes
         gameField?.listeners?.remove(listener)
     }
 
@@ -159,9 +191,11 @@ class TicTacToeView(
      * @see setMeasuredDimension - necessary function to set the dimens for the view
      */
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        // Min size of our view
         val minWidth = suggestedMinimumWidth + paddingLeft + paddingRight
         val minHeight = suggestedMinimumHeight + paddingTop + paddingBottom
 
+        // Calculating desired size of view
         val desiredCellSizeInPx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
             DESIRED_CELL_SIZE,
@@ -174,6 +208,7 @@ class TicTacToeView(
         val desiredWidth = max(minWidth, (rows * desiredCellSizeInPx + paddingLeft + paddingRight))
         val desiredHeight = max(minHeight, (columns * desiredCellSizeInPx + paddingTop + paddingBottom))
 
+        // Submit view size
         setMeasuredDimension(
             resolveSize(desiredWidth, widthMeasureSpec),
             resolveSize(desiredHeight, heightMeasureSpec),
@@ -182,7 +217,8 @@ class TicTacToeView(
 
     /**
      * This fun calls after onMeasure when the container has already given some dimens in which we can
-     * draw our view. By using these dimens we can calculate main view sizes by calling the fun
+     * draw our view. Here we have the real view size after all calculations;
+     * By using these dimens we can calculate main view sizes by calling the fun
      * @see updateViewSizes
      */
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -196,13 +232,16 @@ class TicTacToeView(
         val safeWidth = width - paddingLeft - paddingRight
         val safeHeight = height - paddingTop - paddingBottom
 
-        val cellWidth = (safeWidth / field.getRowsAndColumns().second).toFloat()
-        val cellHeight = (safeHeight / field.getRowsAndColumns().first).toFloat()
+        val rowsNumber = field.getRowsAndColumns().first
+        val columnsNumber = field.getRowsAndColumns().second
+
+        val cellWidth = (safeWidth / columnsNumber).toFloat()
+        val cellHeight = (safeHeight / rowsNumber).toFloat()
         cellSize = min(cellWidth, cellHeight)
 
         cellPadding = cellSize * 0.2f
-        val fieldWidth = cellSize * field.getRowsAndColumns().second
-        val fieldHeight = cellSize * field.getRowsAndColumns().first
+        val fieldWidth = cellSize * columnsNumber
+        val fieldHeight = cellSize * rowsNumber
 
         fieldRect.left = paddingLeft + (safeWidth - fieldWidth) / 2
         fieldRect.top = paddingTop + (safeHeight - fieldHeight) / 2
@@ -216,7 +255,8 @@ class TicTacToeView(
 
         if (canNotStartDrawing()) return
         drawGrid(canvas)
-        drawCells(canvas)
+        drawFocusedCell(canvas)
+        drawPlayerSingInCell(canvas)
     }
 
     private fun canNotStartDrawing(): Boolean {
@@ -244,7 +284,24 @@ class TicTacToeView(
         }
     }
 
-    private fun drawCells(canvas: Canvas) {
+    private fun drawFocusedCell(canvas: Canvas) {
+        val field = this.gameField ?: return
+
+        if (currentCellRow < 0 || currentCellColumn < 0 ||
+            currentCellRow >= field.getRowsAndColumns().first ||
+            currentCellColumn >= field.getRowsAndColumns().second) return
+
+        val cellRect = getCellRect(currentCellColumn, currentCellRow)
+        canvas.drawRect(
+            cellRect.left - cellPadding,
+            cellRect.top - cellPadding,
+            cellRect.right + cellPadding,
+            cellRect.bottom + cellPadding,
+            focusedCellPaint
+        )
+    }
+
+    private fun drawPlayerSingInCell(canvas: Canvas) {
         val field = gameField ?: return
 
         for (row in 0 until field.getRowsAndColumns().first) {
@@ -283,11 +340,86 @@ class TicTacToeView(
         return cellRect
     }
 
+    /**
+     * Instead of process the user click on the cell on the event - MotionEvent.ACTION_UP we call the
+     * fun performClick() - it gives us an opportunity to process the user click not only with a touch
+     * event but also with click events e.g. the click of keyboard or right mouse button
+     * Same way we have used the performClick() in the onTouchEvent fun and dismiss the warning!
+     */
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        when (event?.action) {
+            MotionEvent.ACTION_DOWN -> {
+                updateFocusedCell(event)
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                updateFocusedCell(event)
+                return true
+            }
+            MotionEvent.ACTION_UP ->  return performClick()
+        }
+        return false
+    }
+
+    private fun updateFocusedCell(event: MotionEvent) {
+        val field = this.gameField ?: return
+        val row = getRow(event)
+        val col = getColumn(event)
+
+        if (
+            row in 0 until field.getRowsAndColumns().first &&
+            col in 0 until field.getRowsAndColumns().second
+        ) {
+            if (currentCellRow != row || currentCellColumn != col) {
+                currentCellRow = row
+                currentCellColumn = col
+                invalidate()
+            }
+        } else {
+            // clearing current cell if user moves out from the view
+            currentCellRow = -1
+            currentCellColumn = -1
+            invalidate()
+        }
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+
+        val field = this.gameField ?: return false
+        val row = currentCellRow
+        val col = currentCellColumn
+
+        if (
+            row in 0 until field.getRowsAndColumns().first &&
+            col in 0 until field.getRowsAndColumns().second
+        ) {
+            cellListener?.invoke(row, col, field)
+            return true
+        }
+        return false
+    }
+
+    /**
+     * @see floor - is better then simple rounding to int in our case because it rounds to an integer
+     * towards negative infinity. Examples:
+     *         1) -0.3.toInt() = 0
+     *         2) floor(-0.3) = -1
+     */
+    private fun getRow(event: MotionEvent): Int {
+        return floor((event.y - fieldRect.top) / cellSize).toInt()
+    }
+
+    private fun getColumn(event: MotionEvent): Int {
+        return floor((event.x - fieldRect.left) / cellSize).toInt()
+    }
+
 
     companion object {
         // These colors will be used if we don't set up the DefaultTicTacToeFieldStyle and GlobalTicTacToeFieldStyle
         private const val PLAYER_1_DEFAULT_COLOR = Color.GREEN
         private const val PLAYER_2_DEFAULT_COLOR = Color.RED
+        private const val CURRENT_CELL_DEFAULT_COLOR = Color.LTGRAY
         private const val GRID_DEFAULT_COLOR = Color.GRAY
 
         private const val DESIRED_CELL_SIZE = 60f    // size in dp
